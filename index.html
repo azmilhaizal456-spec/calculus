@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Integration Calculator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --background: #f8fafc;
+            --card: #ffffff;
+            --text: #1e293b;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--background);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            max-width: 1000px;
+            width: 100%;
+            background: var(--card);
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+        h1 {
+            margin-top: 0;
+            font-size: 24px;
+            text-align: center;
+            color: #0f172a;
+        }
+        .calculator-layout {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+        @media (min-width: 768px) {
+            .calculator-layout {
+                grid-template-columns: 350px 1fr;
+            }
+        }
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            padding: 16px;
+            background: #f1f5f9;
+            border-radius: 8px;
+        }
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #475569;
+        }
+        input {
+            padding: 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+        .result-display {
+            margin-top: 10px;
+            padding: 16px;
+            background: #e0f2fe;
+            border-left: 4px solid #0284c7;
+            border-radius: 4px;
+        }
+        .result-title {
+            font-size: 14px;
+            color: #0369a1;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .result-value {
+            font-size: 22px;
+            font-weight: 700;
+            color: #0c4a6e;
+            margin-top: 4px;
+        }
+        #graph {
+            width: 100%;
+            height: 450px;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+        }
+        .error {
+            color: #dc2626;
+            font-size: 13px;
+            margin-top: 4px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Definite Integral Calculator & Visualizer</h1>
+    
+    <div class="calculator-layout">
+        <div class="controls">
+            <div class="input-group">
+                <label for="function-input">Function f(x):</label>
+                <input type="text" id="function-input" value="x^2 - 1" placeholder="e.g., x^2 - 1, sin(x), exp(x)">
+                <div id="error-msg" class="error">Invalid math syntax</div>
+            </div>
+            
+            <div class="input-group">
+                <label for="limit-a">Lower Limit (a):</label>
+                <input type="number" id="limit-a" value="-1" step="0.1">
+            </div>
+            
+            <div class="input-group">
+                <label for="limit-b">Upper Limit (b):</label>
+                <input type="number" id="limit-b" value="2" step="0.1">
+            </div>
+            
+            <div class="result-display">
+                <div class="result-title">Definite Integral Result</div>
+                <div id="result" class="result-value">Calculating...</div>
+            </div>
+        </div>
+        
+        <div id="graph"></div>
+    </div>
+</div>
+
+<script>
+    // Grab UI elements
+    const funcInput = document.getElementById('function-input');
+    const inputA = document.getElementById('limit-a');
+    const inputB = document.getElementById('limit-b');
+    const resultDiv = document.getElementById('result');
+    const errorDiv = document.getElementById('error-msg');
+
+    // Integrate using Simpson's Rule
+    function simpsonRule(f, a, b, n = 1000) {
+        if (n % 2 !== 0) n++; // Ensure n is even
+        const h = (b - a) / n;
+        let sum = f(a) + f(b);
+
+        for (let i = 1; i < n; i++) {
+            const x = a + i * h;
+            sum += i % 2 === 0 ? 2 * f(x) : 4 * f(x);
+        }
+        return (h / 3) * sum;
+    }
+
+    // Main Update Function
+    function updateCalculator() {
+        const exprString = funcInput.value;
+        const a = parseFloat(inputA.value);
+        const b = parseFloat(inputB.value);
+
+        if (isNaN(a) || !isFinite(a) || isNaN(b) || !isFinite(b)) {
+            resultDiv.textContent = "---";
+            return;
+        }
+
+        try {
+            // Compile mathematical string expression using Math.js
+            const compiledExpr = math.compile(exprString);
+            const f = (xVal) => compiledExpr.evaluate({ x: xVal });
+            
+            // Test execution to make sure function evaluation works
+            f(a);
+            errorDiv.style.display = 'none';
+
+            // 1. Calculate the Integral Value
+            const integralValue = simpsonRule(f, a, b);
+            resultDiv.textContent = isNaN(integralValue) ? "Undefined" : integralValue.toFixed(4);
+
+            // 2. Generate Data points for Graphing
+            const xPoints = [];
+            const yPoints = [];
+            
+            // Set dynamic graph boundary ranges extended slightly past limits [a, b]
+            const minX = Math.min(a, b) - 4;
+            const maxX = Math.max(a, b) + 4;
+            const step = (maxX - minX) / 300;
+
+            for (let x = minX; x <= maxX; x += step) {
+                xPoints.push(x);
+                try {
+                    const y = f(x);
+                    yPoints.push(isFinite(y) ? y : null);
+                } catch(e) {
+                    yPoints.push(null);
+                }
+            }
+
+            // 3. Generate Data points for Filled Shaded Region
+            const xShade = [];
+            const yShade = [];
+            const startShade = Math.min(a, b);
+            const endShade = Math.max(a, b);
+            const shadeStep = (endShade - startShade) / 150;
+
+            // Push starting boundary point at baseline y=0
+            xShade.push(startShade);
+            yShade.push(0);
+
+            for (let x = startShade; x <= endShade; x += shadeStep) {
+                xShade.push(x);
+                try {
+                    const y = f(x);
+                    yShade.push(isFinite(y) ? y : 0);
+                } catch(e) {
+                    yShade.push(0);
+                }
+            }
+            
+            // Push ending boundary point back to baseline y=0 to complete the enclosed area shape
+            xShade.push(endShade);
+            yShade.push(0);
+
+            // Plotly Data Config
+            const traceLine = {
+                x: xPoints,
+                y: yPoints,
+                type: 'scatter',
+                mode: 'lines',
+                name: 'f(x)',
+                line: { color: '#2563eb', width: 3 }
+            };
+
+            const traceShade = {
+                x: xShade,
+                y: yShade,
+                fill: 'tozeroy',
+                type: 'scatter',
+                mode: 'none',
+                name: 'Area Integration',
+                fillcolor: 'rgba(37, 99, 235, 0.25)'
+            };
+
+            const layout = {
+                margin: { t: 20, b: 40, l: 40, r: 20 },
+                xaxis: { zeroline: true, zeroellipse: false, gridcolor: '#e2e8f0' },
+                yaxis: { zeroline: true, gridcolor: '#e2e8f0' },
+                showlegend: false,
+                hovermode: 'closest'
+            };
+
+            Plotly.newPlot('graph', [traceShade, traceLine], layout, { displayModeBar: false });
+
+        } catch (err) {
+            errorDiv.style.display = 'block';
+            resultDiv.textContent = "Error";
+        }
+    }
+
+    // Attach real-time event listeners
+    funcInput.addEventListener('input', updateCalculator);
+    inputA.addEventListener('input', updateCalculator);
+    inputB.addEventListener('input', updateCalculator);
+
+    // Initial load call
+    window.onload = updateCalculator;
+</script>
+
+</body>
+</html>
